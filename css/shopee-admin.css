@@ -1,0 +1,373 @@
+/* Shopee Admin Styles */
+.wcpr-shopee-admin {
+	font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+/* Tab Navigation */
+.wcpr-tab-container {
+	margin-top: 20px;
+}
+
+.wcpr-tab-nav {
+	display: flex;
+	border-bottom: 1px solid #ccc;
+	margin-bottom: 20px;
+}
+
+.wcpr-tab-link {
+	padding: 10px 20px;
+	text-decoration: none;
+	color: #666;
+	border: 1px solid transparent;
+	border-bottom: none;
+	margin-right: 5px;
+	border-radius: 4px 4px 0 0;
+	background: #f9f9f9;
+	transition: all 0.3s ease;
+}
+
+.wcpr-tab-link:hover {
+	background: #f0f0f0;
+	color: #333;
+}
+
+.wcpr-tab-link.active {
+	background: #fff;
+	color: #0073aa;
+	border-color: #ccc;
+	margin-bottom: -1px;
+	padding-bottom: 11px;
+}
+
+/* Tab Content */
+.wcpr-tab-content {
+	display: none;
+	padding: 20px;
+	background: #fff;
+	border: 1px solid #ccc;
+	border-top: none;
+	border-radius: 0 0 4px 4px;
+}
+
+.wcpr-tab-content.active {
+	display: block;
+}
+
+/* Settings Form */
+.wcpr-settings-form {
+	max-width: 800px;
+}
+
+.wcpr-settings-form .form-table th {
+	width: 200px;
+}
+
+/* Cron Status */
+.wcpr-cron-status {
+	background: #f9f9f9;
+	padding: 15px;
+	border-radius: 4px;
+	margin-top: 20px;
+}
+
+.wcpr-cron-status h3 {
+	margin-top: 0;
+	color: #333;
+}
+
+/* Sync Controls */
+.wcpr-sync-controls {
+	background: #f9f9f9;
+	padding: 20px;
+	border-radius: 4px;
+	margin-bottom: 20px;
+}
+
+.wcpr-sync-controls h3 {
+	margin-top: 0;
+	color: #333;
+}
+
+.wcpr-sync-controls p {
+	color: #666;
+	margin-bottom: 15px;
+}
+
+/* Progress Bar */
+.wcpr-sync-progress {
+	margin-top: 15px;
+}
+
+.wcpr-progress-bar {
+	width: 100%;
+	height: 20px;
+	background: #e0e0e0;
+	border-radius: 10px;
+	overflow: hidden;
+	margin-bottom: 10px;
+}
+
+.wcpr-progress-fill {
+	height: 100%;
+	background: linear-gradient(90deg, #0073aa, #005a87);
+	width: 0%;
+	transition: width 0.3s ease;
+}
+
+.wcpr-progress-text {
+	text-align: center;
+	color: #666;
+	font-size: 14px;
+}
+
+/* Product Filters */
+.wcpr-product-filters {
+	display: flex;
+	gap: 15px;
+	margin-bottom: 20px;
+	align-items: center;
+}
+
+.wcpr-product-filters input,
+.wcpr-product-filters select {
+	min-width: 200px;
+}
+
+/* Products Table */
+.wcpr-products-table {
+	margin-top: 20px;
+}
+
+.wcpr-products-table th {
+	font-weight: 600;
+}
+
+.wcpr-sync-btn {
+	padding: 5px 15px;
+	font-size: 12px;
+}
+
+.wcpr-sync-btn.syncing {
+	opacity: 0.6;
+	cursor: not-allowed;
+}
+
+/* History Filters */
+.wcpr-history-filters {
+	display: flex;
+	gap: 15px;
+	margin-bottom: 20px;
+	align-items: center;
+}
+
+.wcpr-history-filters select {
+	min-width: 150px;
+}
+
+/* History Table */
+.wcpr-history-table {
+	margin-top: 20px;
+}
+
+.wcpr-history-table th {
+	font-weight: 600;
+}
+
+.wcpr-status-completed {
+	color: #46b450;
+	font-weight: 600;
+}
+
+.wcpr-status-running {
+	color: #ffb900;
+	font-weight: 600;
+}
+
+.wcpr-status-failed {
+	color: #dc3232;
+	font-weight: 600;
+}
+
+/* Modal */
+.wcpr-modal {
+	display: none;
+	position: fixed;
+	z-index: 100000;
+	left: 0;
+	top: 0;
+	width: 100%;
+	height: 100%;
+	background-color: rgba(0, 0, 0, 0.5);
+}
+
+.wcpr-modal-content {
+	background-color: #fff;
+	margin: 5% auto;
+	padding: 0;
+	border-radius: 8px;
+	width: 90%;
+	max-width: 600px;
+	box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.wcpr-modal-header {
+	padding: 20px;
+	border-bottom: 1px solid #e0e0e0;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+}
+
+.wcpr-modal-header h3 {
+	margin: 0;
+	color: #333;
+}
+
+.wcpr-modal-close {
+	color: #aaa;
+	font-size: 28px;
+	font-weight: bold;
+	cursor: pointer;
+	line-height: 1;
+}
+
+.wcpr-modal-close:hover {
+	color: #333;
+}
+
+.wcpr-modal-body {
+	padding: 20px;
+}
+
+/* Sync Status */
+.wcpr-sync-status {
+	display: flex;
+	align-items: center;
+	gap: 20px;
+	margin-bottom: 20px;
+}
+
+.wcpr-sync-icon {
+	flex-shrink: 0;
+}
+
+.wcpr-spinner {
+	width: 40px;
+	height: 40px;
+	border: 4px solid #f3f3f3;
+	border-top: 4px solid #0073aa;
+	border-radius: 50%;
+	animation: wcpr-spin 1s linear infinite;
+}
+
+@keyframes wcpr-spin {
+	0% { transform: rotate(0deg); }
+	100% { transform: rotate(360deg); }
+}
+
+.wcpr-sync-message h4 {
+	margin: 0 0 5px 0;
+	color: #333;
+}
+
+.wcpr-sync-message p {
+	margin: 0;
+	color: #666;
+}
+
+/* Progress Detail */
+.wcpr-sync-progress-detail {
+	margin-bottom: 20px;
+}
+
+.wcpr-sync-progress-detail .wcpr-progress-bar {
+	height: 25px;
+}
+
+.wcpr-sync-progress-detail .wcpr-progress-text {
+	font-size: 16px;
+	font-weight: 600;
+	color: #333;
+}
+
+/* Sync Log */
+.wcpr-sync-log {
+	background: #f9f9f9;
+	border-radius: 4px;
+	padding: 15px;
+	max-height: 200px;
+	overflow-y: auto;
+}
+
+.wcpr-log-header {
+	margin-bottom: 10px;
+	color: #333;
+}
+
+.wcpr-log-content {
+	font-family: 'Courier New', monospace;
+	font-size: 12px;
+	color: #666;
+	line-height: 1.4;
+}
+
+/* Loading States */
+.wcpr-loading {
+	text-align: center;
+	padding: 40px;
+	color: #666;
+	font-style: italic;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+	.wcpr-tab-nav {
+		flex-direction: column;
+	}
+	
+	.wcpr-tab-link {
+		margin-right: 0;
+		margin-bottom: 5px;
+		border-radius: 4px;
+	}
+	
+	.wcpr-tab-link.active {
+		margin-bottom: 5px;
+		padding-bottom: 10px;
+	}
+	
+	.wcpr-product-filters,
+	.wcpr-history-filters {
+		flex-direction: column;
+		align-items: stretch;
+	}
+	
+	.wcpr-product-filters input,
+	.wcpr-product-filters select,
+	.wcpr-history-filters select {
+		min-width: auto;
+	}
+	
+	.wcpr-modal-content {
+		width: 95%;
+		margin: 10% auto;
+	}
+}
+
+/* Add around line 200: Fix button styling for sync states */
+.wcpr-sync-product-btn {
+	padding: 5px 15px;
+	font-size: 12px;
+	transition: all 0.3s ease;
+}
+
+.wcpr-sync-product-btn:disabled {
+	opacity: 0.6;
+	cursor: not-allowed;
+	background: #f0f0f0;
+}
+
+.wcpr-sync-product-btn.syncing {
+	background: #0073aa;
+	color: white;
+}
