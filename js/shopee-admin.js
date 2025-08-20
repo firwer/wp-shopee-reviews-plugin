@@ -249,24 +249,29 @@
 			this.isSyncing = true;
 			this.showModal('Syncing all products...');
 			
-			// Simulate progress for all products sync
-			let progress = 0;
-			const progressInterval = setInterval(() => {
-				progress += Math.random() * 10;
-				if (progress >= 100) {
-					progress = 100;
-					clearInterval(progressInterval);
-					this.hideModal();
+			$.ajax({
+				url: wcpr_shopee_ajax.ajax_url,
+				type: 'POST',
+				data: {
+					action: 'wcpr_shopee_sync_all',
+					nonce: wcpr_shopee_ajax.nonce
+				},
+				success: (response) => {
+					if (response.success) {
+						this.showNotice(response.data.message, 'success');
+						this.loadHistory(); // Refresh history
+					} else {
+						this.showNotice('Sync failed: ' + response.data.message, 'error');
+					}
+				},
+				error: () => {
+					this.showNotice('Sync failed. Please try again.', 'error');
+				},
+				complete: () => {
 					this.isSyncing = false;
-					
-					// Show success message
-					this.showNotice('All products synced successfully!', 'success');
-					
-					// Refresh history
-					this.loadHistory();
+					this.hideModal();
 				}
-				this.updateProgress(progress);
-			}, 500);
+			});
 		}
 		
 		/**

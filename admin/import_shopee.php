@@ -17,12 +17,15 @@ class VI_WOOCOMMERCE_PHOTO_REVIEWS_Admin_Import_Shopee {
 		
 		$this->options = wp_parse_args( get_option( 'wcpr_shopee_options', array() ), array(
 			'enabled'         => 1,
-			'endpoint'        => 'https://asia-southeast1-starlit-array-328711.cloudfunctions.net/shopeeboy/comments',
+			'endpoint'        => 'https://asia-southeast1-starlit-array-328711.cloudfunctions.net/shopeeboy/comments/sync',
 			'daily'           => 1,
 			'cron_interval'   => 'daily',
 			'cron_time'       => '02:00',
 			'download_media'  => 1,
 			'review_status'   => '1',
+			'page_size'       => 100,
+			'max_fetch'       => 500,
+			'lookback_seconds' => 3600,
 		) );
 
 		add_action( 'admin_menu', array( $this, 'add_menu' ), 21 );
@@ -33,6 +36,7 @@ class VI_WOOCOMMERCE_PHOTO_REVIEWS_Admin_Import_Shopee {
 		add_action( 'wp_ajax_wcpr_shopee_get_history', array( $this, 'ajax_get_history' ) );
 		add_action( 'admin_post_wcpr_shopee_sync', array( $this, 'handle_post_sync' ) );
 		add_action( 'wcpr_shopee_daily_sync', array( $this, 'cron_sync_all' ) );
+		add_action( 'wp_ajax_wcpr_shopee_sync_all', array( $this, 'ajax_sync_all' ) );
 		
 		// Add custom cron intervals
 		add_filter( 'cron_schedules', array( $this, 'add_cron_intervals' ) );
@@ -69,6 +73,9 @@ class VI_WOOCOMMERCE_PHOTO_REVIEWS_Admin_Import_Shopee {
 			$this->options['cron_time']      = sanitize_text_field( $_POST['wcpr_shopee_cron_time'] );
 			$this->options['download_media'] = isset( $_POST['wcpr_shopee_download'] ) ? 1 : 0;
 			$this->options['review_status']  = isset( $_POST['wcpr_shopee_status'] ) && $_POST['wcpr_shopee_status'] === '0' ? '0' : '1';
+			$this->options['page_size']        = isset( $_POST['wcpr_shopee_page_size'] ) ? max( 1, min( 100, intval( $_POST['wcpr_shopee_page_size'] ) ) ) : 100;
+			$this->options['max_fetch']        = isset( $_POST['wcpr_shopee_max_fetch'] ) ? max( 1, min( 1000, intval( $_POST['wcpr_shopee_max_fetch'] ) ) ) : 500;
+			$this->options['lookback_seconds'] = isset( $_POST['wcpr_shopee_lookback'] ) ? max( 0, intval( $_POST['wcpr_shopee_lookback'] ) ) : 3600;
 			
 			update_option( 'wcpr_shopee_options', $this->options );
 			
@@ -183,6 +190,29 @@ class VI_WOOCOMMERCE_PHOTO_REVIEWS_Admin_Import_Shopee {
 									<p class="description"><?php esc_html_e( 'Default status for imported reviews', 'woocommerce-photo-reviews' ); ?></p>
 								</td>
 							</tr>
+							<tr>
+    <th scope="row"><?php esc_html_e( 'Page Size', 'woocommerce-photo-reviews' ); ?></th>
+    <td>
+        <input type="number" name="wcpr_shopee_page_size" value="<?php echo esc_attr( $this->options['page_size'] ); ?>" min="1" max="100" class="small-text">
+        <p class="description"><?php esc_html_e( 'Number of reviews per API call (1-100, default: 100)', 'woocommerce-photo-reviews' ); ?></p>
+    </td>
+</tr>
+
+<tr>
+    <th scope="row"><?php esc_html_e( 'Max Fetch Per Run', 'woocommerce-photo-reviews' ); ?></th>
+    <td>
+        <input type="number" name="wcpr_shopee_max_fetch" value="<?php echo esc_attr( $this->options['max_fetch'] ); ?>" min="1" max="1000" class="small-text">
+        <p class="description"><?php esc_html_e( 'Maximum reviews to fetch per sync run (1-1000, default: 500)', 'woocommerce-photo-reviews' ); ?></p>
+    </td>
+</tr>
+
+<tr>
+    <th scope="row"><?php esc_html_e( 'Lookback Safety Window', 'woocommerce-photo-reviews' ); ?></th>
+    <td>
+        <input type="number" name="wcpr_shopee_lookback" value="<?php echo esc_attr( $this->options['lookback_seconds'] ); ?>" min="0" class="small-text">
+        <p class="description"><?php esc_html_e( 'Seconds to look back for safety (default: 3600 = 1 hour)', 'woocommerce-photo-reviews' ); ?></p>
+    </td>
+</tr>
 						</table>
 						
 						<p>
@@ -391,7 +421,9 @@ class VI_WOOCOMMERCE_PHOTO_REVIEWS_Admin_Import_Shopee {
 	}
 
 	public function cron_sync_all() {
-		if ( ! $this->options['enabled'] ) { return; }
+		if ( ! $this->options['enabled'] ) { 
+			return array( 'imported' => 0, 'skipped' => 0, 'errors' => 'Integration disabled', 'duration' => 0, 'success' => false ); 
+		}
 		
 		// Record sync start
 		$sync_id = $this->record_sync_start( 'cron' );
@@ -418,7 +450,7 @@ class VI_WOOCOMMERCE_PHOTO_REVIEWS_Admin_Import_Shopee {
 				$sku = get_post_meta( $product_id, $search_product_by, true );
 				if ( $sku ) {
 					try {
-						$result = $this->sync_one_sku( $sku );
+						$result = $this->sync_one_sku( $sku, $product_id );
 						$total_imported += $result['imported'];
 						$total_skipped += $result['skipped'];
 					} catch ( Exception $e ) {
@@ -433,13 +465,18 @@ class VI_WOOCOMMERCE_PHOTO_REVIEWS_Admin_Import_Shopee {
 		$duration = time() - $start_time;
 		
 		// Record sync completion
-		$this->record_sync_completion( $sync_id, array(
+		$result = array(
 			'imported' => $total_imported,
 			'skipped'  => $total_skipped,
 			'errors'   => implode( "\n", $errors ),
 			'duration' => $duration,
 			'success'  => empty( $errors ),
-		) );
+		);
+		
+		$this->record_sync_completion( $sync_id, $result );
+		
+		// Return the result for AJAX calls
+		return $result;
 	}
 
 	protected function sync_one_sku( $sku, $sync_id = null ) {
@@ -455,7 +492,7 @@ class VI_WOOCOMMERCE_PHOTO_REVIEWS_Admin_Import_Shopee {
 		}
 		
 		try {
-			$list = $this->fetch_reviews( $sku );
+			$list = $this->fetch_reviews( $sku, $product_ids[0] );
 		} catch ( Exception $e ) {
 			return array( 'imported' => 0, 'skipped' => 0, 'errors' => 'API Error: ' . $e->getMessage(), 'duration' => 0, 'success' => false );
 		}
@@ -495,33 +532,81 @@ class VI_WOOCOMMERCE_PHOTO_REVIEWS_Admin_Import_Shopee {
 		);
 	}
 
-	protected function fetch_reviews( $item_id ) {
+	protected function fetch_reviews( $item_id, $product_id = 0 ) {
 		if ( empty( $this->options['endpoint'] ) ) {
 			throw new Exception( 'API endpoint not configured' );
 		}
 		
-		$url = add_query_arg( 'item_id', rawurlencode( $item_id ), $this->options['endpoint'] );
-		$res = wp_remote_get( $url, array( 'timeout' => 20 ) );
-		
-		if ( is_wp_error( $res ) ) { 
-			throw new Exception( 'HTTP request failed: ' . $res->get_error_message() );
+		// Get last sync timestamp for this product
+		$last_sync_ts = 0;
+		if ( $product_id ) {
+			$last_sync_ts = get_post_meta( $product_id, '_shopee_last_review_ts', true );
+			$last_sync_ts = intval( $last_sync_ts );
 		}
 		
-		$code = wp_remote_retrieve_response_code( $res );
-		if ( $code !== 200 ) { 
-			throw new Exception( "HTTP request failed with status code: {$code}" );
+		// Apply lookback safety window
+		$since_ts = max( 0, $last_sync_ts - $this->options['lookback_seconds'] );
+		
+		$all_reviews = array();
+		$cursor = '';
+		$total_fetched = 0;
+		
+		do {
+			// Build API URL with parameters
+			$url = add_query_arg( array(
+				'item_id' => rawurlencode( $item_id ),
+				'since_ts' => $since_ts,
+				'page_size' => $this->options['page_size'],
+				'max_fetch' => $this->options['max_fetch'],
+				'cursor' => $cursor,
+			), $this->options['endpoint'] );
+			
+			$res = wp_remote_get( $url, array( 'timeout' => 30 ) );
+			
+			if ( is_wp_error( $res ) ) { 
+				throw new Exception( 'HTTP request failed: ' . $res->get_error_message() );
+			}
+			
+			$code = wp_remote_retrieve_response_code( $res );
+			if ( $code !== 200 ) { 
+				throw new Exception( "HTTP request failed with status code: {$code}" );
+			}
+			
+			$body = json_decode( wp_remote_retrieve_body( $res ), true );
+			if ( json_last_error() !== JSON_ERROR_NONE ) {
+				throw new Exception( 'Invalid JSON response from API' );
+			}
+			
+			if ( ! empty( $body['error'] ) ) {
+				throw new Exception( 'API Error: ' . $body['message'] );
+			}
+			
+			$response = $body['response'] ?? array();
+			$reviews = $response['items'] ?? array();
+			$resume_cursor = $response['resume_cursor'] ?? '';
+			$latest_ts = $response['latest_ts'] ?? 0;
+			
+			if ( ! empty( $reviews ) && is_array( $reviews ) ) {
+				$all_reviews = array_merge( $all_reviews, $reviews );
+				$total_fetched += count( $reviews );
+			}
+			
+			// Continue with next page if resume_cursor is provided
+			$cursor = $resume_cursor;
+			
+			// Safety check to prevent infinite loops
+			if ( $total_fetched >= $this->options['max_fetch'] * 2 ) {
+				break;
+			}
+			
+		} while ( ! empty( $resume_cursor ) && $total_fetched < $this->options['max_fetch'] );
+		
+		// Store the latest timestamp for this product
+		if ( $product_id && $latest_ts > $last_sync_ts ) {
+			update_post_meta( $product_id, '_shopee_last_review_ts', $latest_ts );
 		}
 		
-		$body = json_decode( wp_remote_retrieve_body( $res ), true );
-		if ( json_last_error() !== JSON_ERROR_NONE ) {
-			throw new Exception( 'Invalid JSON response from API' );
-		}
-		
-		if ( empty( $body['response']['item_comment_list'] ) || ! is_array( $body['response']['item_comment_list'] ) ) { 
-			return array(); 
-		}
-		
-		return $body['response']['item_comment_list'];
+		return $all_reviews;
 	}
 
 	protected function insert_review( $product_id, $r ) {
@@ -755,8 +840,9 @@ class VI_WOOCOMMERCE_PHOTO_REVIEWS_Admin_Import_Shopee {
 					'name'        => $product->post_title,
 					'sku'         => $sku,
 					'categories'  => implode( ', ', $category_names ),
-					'last_sync'   => $last_sync ? $last_sync->start_time : __( 'Never', 'woocommerce-photo-reviews' ),
+					'last_sync'   => $this->get_product_sync_stats( $product->ID )['last_sync_human'],
 					'edit_url'    => get_edit_post_link( $product->ID ),
+					'sync_stats'  => $this->get_product_sync_stats( $product->ID ),
 				);
 			}
 		}
@@ -872,7 +958,32 @@ class VI_WOOCOMMERCE_PHOTO_REVIEWS_Admin_Import_Shopee {
 		$sync_id = $this->record_sync_start( 'manual', $sku, $product->post_title );
 		
 		// Perform sync
-		$result = $this->sync_one_sku( $sku, $sync_id );
+		$result = $this->sync_one_sku( $sku, $product_id );
+		
+		// Record sync completion
+		$this->record_sync_completion( $sync_id, $result );
+		
+		wp_send_json_success( array(
+			'message' => sprintf( __( 'Sync completed. %d reviews imported, %d skipped.', 'woocommerce-photo-reviews' ), $result['imported'], $result['skipped'] ),
+			'result'  => $result,
+		) );
+	}
+
+	/**
+	 * AJAX: Sync all products
+	 */
+	public function ajax_sync_all() {
+		check_ajax_referer( 'wcpr_shopee_ajax_nonce', 'nonce' );
+		
+		if ( ! current_user_can( $this->settings->get_setting_capability() ) ) {
+			wp_send_json_error( array( 'message' => 'Permission denied' ) );
+		}
+		
+		// Record sync start
+		$sync_id = $this->record_sync_start( 'manual' );
+		
+		// Perform sync for all products
+		$result = $this->cron_sync_all();
 		
 		// Record sync completion
 		$this->record_sync_completion( $sync_id, $result );
@@ -943,3 +1054,65 @@ class VI_WOOCOMMERCE_PHOTO_REVIEWS_Admin_Import_Shopee {
 			return floor( $seconds / 3600 ) . 'h ' . floor( ( $seconds % 3600 ) / 60 ) . 'm';
 		}
 	}
+
+	/**
+	 * Get last sync timestamp for a product
+	 */
+	private function get_last_sync_timestamp( $product_id ) {
+		$timestamp = get_post_meta( $product_id, '_shopee_last_review_ts', true );
+		return intval( $timestamp );
+	}
+
+	/**
+	 * Update last sync timestamp for a product
+	 */
+	private function update_last_sync_timestamp( $product_id, $timestamp ) {
+		update_post_meta( $product_id, '_shopee_last_review_ts', $timestamp );
+	}
+
+	/**
+	 * Get sync statistics for a product
+	 */
+	public function get_product_sync_stats( $product_id ) {
+		$last_sync_ts = $this->get_last_sync_timestamp( $product_id );
+		$last_sync_date = $last_sync_ts > 0 ? date( 'Y-m-d H:i:s', $last_sync_ts ) : 'Never';
+		
+		// Count reviews for this product
+		$review_count = get_comments( array(
+			'post_id' => $product_id,
+			'type' => 'review',
+			'status' => array( 1, 0 ),
+			'count' => true,
+			'meta_query' => array(
+				array(
+					'key' => 'wcpr_source',
+					'value' => 'shopee',
+					'compare' => '='
+				)
+			)
+		) );
+		
+		return array(
+			'last_sync_timestamp' => $last_sync_ts,
+			'last_sync_date' => $last_sync_date,
+			'total_reviews' => $review_count,
+			'last_sync_human' => $last_sync_ts > 0 ? human_time_diff( $last_sync_ts ) . ' ago' : 'Never'
+		);
+	}
+}
+
+// Initialize the class
+if ( ! class_exists( 'VI_WOOCOMMERCE_PHOTO_REVIEWS_Admin_Import_Shopee_Instance' ) ) {
+    class VI_WOOCOMMERCE_PHOTO_REVIEWS_Admin_Import_Shopee_Instance {
+        private static $instance = null;
+        
+        public static function get_instance() {
+            if ( null === self::$instance ) {
+                self::$instance = new VI_WOOCOMMERCE_PHOTO_REVIEWS_Admin_Import_Shopee();
+            }
+            return self::$instance;
+        }
+    }
+    
+    VI_WOOCOMMERCE_PHOTO_REVIEWS_Admin_Import_Shopee_Instance::get_instance();
+}
