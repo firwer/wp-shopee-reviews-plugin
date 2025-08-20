@@ -428,10 +428,10 @@
 }
 .wcpr-filter-container .wcpr-filter-button:hover {
   color: #ffffff;
-  background-color: rgba(0, 0, 0, 0.8) !important;
+  background-color: #a52108 !important;
 }
 .wcpr-filter-container .wcpr-filter-button.wcpr-active {
-  background-color: #000000;
+  background-color: #a52108;
 }
 .wcpr-filter-container ul.wcpr-filter-button-ul {
   list-style-type: none;
