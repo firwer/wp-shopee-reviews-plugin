@@ -1100,19 +1100,3 @@ class VI_WOOCOMMERCE_PHOTO_REVIEWS_Admin_Import_Shopee {
 		);
 	}
 }
-
-// Initialize the class
-if ( ! class_exists( 'VI_WOOCOMMERCE_PHOTO_REVIEWS_Admin_Import_Shopee_Instance' ) ) {
-    class VI_WOOCOMMERCE_PHOTO_REVIEWS_Admin_Import_Shopee_Instance {
-        private static $instance = null;
-        
-        public static function get_instance() {
-            if ( null === self::$instance ) {
-                self::$instance = new VI_WOOCOMMERCE_PHOTO_REVIEWS_Admin_Import_Shopee();
-            }
-            return self::$instance;
-        }
-    }
-    
-    VI_WOOCOMMERCE_PHOTO_REVIEWS_Admin_Import_Shopee_Instance::get_instance();
-}
