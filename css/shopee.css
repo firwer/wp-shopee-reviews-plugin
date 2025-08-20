@@ -1,0 +1,15 @@
+/* woocommerce-photo-reviews/css/shopee.css */
+.wcpr-source-badge {
+	display:inline-block;
+	margin-left:8px;
+	padding:2px 6px;
+	border-radius:12px;
+	font-size:11px;
+	line-height:1.2;
+	vertical-align:middle;
+}
+.wcpr-source-shopee {
+	background:#ee4d2d;
+	color:#fff;
+	font-weight:600;
+}
