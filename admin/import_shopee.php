@@ -37,12 +37,79 @@ class VI_WOOCOMMERCE_PHOTO_REVIEWS_Admin_Import_Shopee {
 		add_action( 'admin_post_wcpr_shopee_sync', array( $this, 'handle_post_sync' ) );
 		add_action( 'wcpr_shopee_daily_sync', array( $this, 'cron_sync_all' ) );
 		add_action( 'wp_ajax_wcpr_shopee_sync_all', array( $this, 'ajax_sync_all' ) );
-		
+		add_action( 'wp_ajax_wcpr_shopee_full_sync_product', array( $this, 'ajax_full_sync_product' ) );
+
 		// Add custom cron intervals
 		add_filter( 'cron_schedules', array( $this, 'add_cron_intervals' ) );
 		
 		// Create table if needed
 		add_action( 'init', array( $this, 'maybe_create_table' ) );
+
+		// Add external cron trigger that respects WordPress settings
+		add_action( 'init', array( $this, 'maybe_handle_cron_request' ) );
+
+	}
+
+	/**
+	 * Handle external cron requests that respect WordPress settings
+	 */
+	public function maybe_handle_cron_request() {
+		// Add debugging to see if this method is being called
+		error_log('Shopee cron request received: ' . print_r($_GET, true));
+		error_log('Request URI: ' . $_SERVER['REQUEST_URI']);
+		error_log('Query string: ' . $_SERVER['QUERY_STRING']);
+
+		if ( isset( $_GET['wcpr_shopee_cron'] ) && $_GET['wcpr_shopee_cron'] === 'smart_sync' ) {
+			$secret = isset( $_GET['secret'] ) ? sanitize_text_field( $_GET['secret'] ) : '';
+			$expected_secret = wp_hash( 'wcpr_shopee_cron_secret' );
+			
+			if ( $secret !== $expected_secret ) {
+				wp_die( 'Unauthorized', 'Unauthorized', array( 'response' => 401 ) );
+			}
+
+			error_log('Shopee cron secret verified, checking if sync should run');
+			
+			// Check if sync should run based on WordPress settings
+			if ( $this->should_run_sync_now() ) {
+				error_log('Shopee cron sync executing');
+				$result = $this->cron_sync_all();
+				wp_send_json_success( array( 
+					'message' => 'Sync executed', 
+					'result' => $result,
+					'reason' => 'Scheduled sync time reached'
+				) );
+			} else {
+				error_log('Shopee cron sync skipped');	
+				wp_send_json_success( array( 
+					'message' => 'Sync skipped', 
+					'reason' => 'Not yet time for sync based on settings'
+				) );
+			}
+			exit;
+		}
+	}
+
+	/**
+	 * Trigger WordPress cron to run pending scheduled events
+	 */
+	private function trigger_wordpress_cron() {
+		// Check if there are pending cron events
+		$cron_jobs = _get_cron_array();
+		$pending_shopee_jobs = array();
+		
+		foreach ( $cron_jobs as $timestamp => $cron ) {
+			if ( isset( $cron['wcpr_shopee_daily_sync'] ) ) {
+				$pending_shopee_jobs[] = $timestamp;
+			}
+		}
+		
+		if ( empty( $pending_shopee_jobs ) ) {
+			// No pending jobs, create one based on current settings
+			$this->maybe_schedule();
+		}
+		
+		// Trigger WordPress cron to run
+		wp_cron();
 	}
 
 	public function add_menu() {
@@ -228,7 +295,10 @@ class VI_WOOCOMMERCE_PHOTO_REVIEWS_Admin_Import_Shopee {
 						<?php
 						$next_scheduled = wp_next_scheduled( 'wcpr_shopee_daily_sync' );
 						if ( $next_scheduled ) {
-							echo '<p><strong>' . esc_html__( 'Next sync scheduled for:', 'woocommerce-photo-reviews' ) . '</strong> ' . esc_html( get_date_from_gmt( date( 'Y-m-d H:i:s', $next_scheduled ), 'F j, Y g:i a' ) ) . '</p>';
+							// FIXED: Use WordPress timezone for display
+							$wp_timezone = wp_timezone();
+							$next_sync_local = wp_date( 'F j, Y g:i a', $next_scheduled, $wp_timezone );
+							echo '<p><strong>' . esc_html__( 'Next sync scheduled for:', 'woocommerce-photo-reviews' ) . '</strong> ' . esc_html( $next_sync_local ) . '</p>';
 						} else {
 							echo '<p><strong>' . esc_html__( 'No sync scheduled', 'woocommerce-photo-reviews' ) . '</strong></p>';
 						}
@@ -532,6 +602,9 @@ class VI_WOOCOMMERCE_PHOTO_REVIEWS_Admin_Import_Shopee {
 		);
 	}
 
+	/**
+	 * Fetch reviews with correct delta vs full sync logic
+	 */
 	protected function fetch_reviews( $item_id, $product_id = 0 ) {
 		if ( empty( $this->options['endpoint'] ) ) {
 			throw new Exception( 'API endpoint not configured' );
@@ -544,23 +617,39 @@ class VI_WOOCOMMERCE_PHOTO_REVIEWS_Admin_Import_Shopee {
 			$last_sync_ts = intval( $last_sync_ts );
 		}
 		
-		// Apply lookback safety window
-		$since_ts = max( 0, $last_sync_ts - $this->options['lookback_seconds'] );
+		// Determine if this is a full sync or incremental sync
+		$is_full_sync = ($last_sync_ts === 0);
+		
+		if ($is_full_sync) {
+			// FULL SYNC: Use the full sync endpoint to get everything
+			return $this->fetch_reviews_full_sync( $item_id, $product_id );
+		} else {
+			// DELTA SYNC: Use the existing endpoint with since_ts for sliding window
+			return $this->fetch_reviews_delta_sync( $item_id, $product_id, $last_sync_ts );
+		}
+	}
+
+	/**
+	 * Full sync - fetch ALL reviews using /comments/sync/full endpoint
+	 */
+	private function fetch_reviews_full_sync( $item_id, $product_id = 0 ) {
+		$endpoint = str_replace('/comments/sync', '/comments/sync/full', $this->options['endpoint']);
 		
 		$all_reviews = array();
 		$cursor = '';
 		$total_fetched = 0;
+		$max_attempts = 20; // More attempts for full sync
+		$attempts = 0;
 		
 		do {
-			// Build API URL with parameters
-			$url = add_query_arg( array(
+			$params = array(
 				'item_id' => rawurlencode( $item_id ),
-				'since_ts' => $since_ts,
 				'page_size' => $this->options['page_size'],
-				'max_fetch' => $this->options['max_fetch'],
+				'max_fetch' => 10000, // Much higher limit for full sync
 				'cursor' => $cursor,
-			), $this->options['endpoint'] );
+			);
 			
+			$url = add_query_arg( $params, $endpoint );
 			$res = wp_remote_get( $url, array( 'timeout' => 30 ) );
 			
 			if ( is_wp_error( $res ) ) { 
@@ -585,6 +674,7 @@ class VI_WOOCOMMERCE_PHOTO_REVIEWS_Admin_Import_Shopee {
 			$reviews = $response['items'] ?? array();
 			$resume_cursor = $response['resume_cursor'] ?? '';
 			$latest_ts = $response['latest_ts'] ?? 0;
+			$more_from_shopee = $response['more_from_shopee'] ?? false;
 			
 			if ( ! empty( $reviews ) && is_array( $reviews ) ) {
 				$all_reviews = array_merge( $all_reviews, $reviews );
@@ -593,13 +683,110 @@ class VI_WOOCOMMERCE_PHOTO_REVIEWS_Admin_Import_Shopee {
 			
 			// Continue with next page if resume_cursor is provided
 			$cursor = $resume_cursor;
+			$attempts++;
 			
-			// Safety check to prevent infinite loops
+			// Stop if no more data or reached safety limits
+			if ( ! $more_from_shopee || empty( $resume_cursor ) || $attempts >= $max_attempts ) {
+				break;
+			}
+			
+			// Safety check
+			if ( $total_fetched >= 20000 ) {
+				break;
+			}
+			
+			// Add delay between requests
+			if ($attempts > 1) {
+				usleep(500000); // 0.5 second delay
+			}
+			
+		} while ( true );
+		
+		// Store the latest timestamp for this product
+		if ( $product_id && $latest_ts > 0 ) {
+			update_post_meta( $product_id, '_shopee_last_review_ts', $latest_ts );
+		}
+		
+		return $all_reviews;
+	}
+
+	/**
+	 * Delta sync - fetch only NEW reviews using existing /comments/sync endpoint
+	 * This implements the sliding window concept correctly
+	 */
+	private function fetch_reviews_delta_sync( $item_id, $product_id, $last_sync_ts ) {
+		$endpoint = $this->options['endpoint']; // Use existing endpoint
+		
+		$all_reviews = array();
+		$cursor = '';
+		$total_fetched = 0;
+		$max_attempts = 5; // Fewer attempts for delta sync
+		$attempts = 0;
+		
+		do {
+			// Apply lookback safety window
+			$since_ts = max( 0, $last_sync_ts - $this->options['lookback_seconds'] );
+			
+			$params = array(
+				'item_id' => rawurlencode( $item_id ),
+				'since_ts' => $since_ts, // This is the key for delta sync
+				'page_size' => $this->options['page_size'],
+				'max_fetch' => $this->options['max_fetch'],
+				'cursor' => $cursor,
+			);
+			
+			$url = add_query_arg( $params, $endpoint );
+			$res = wp_remote_get( $url, array( 'timeout' => 30 ) );
+			
+			if ( is_wp_error( $res ) ) { 
+				throw new Exception( 'HTTP request failed: ' . $res->get_error_message() );
+			}
+			
+			$code = wp_remote_retrieve_response_code( $res );
+			if ( $code !== 200 ) { 
+				throw new Exception( "HTTP request failed with status code: {$code}" );
+			}
+			
+			$body = json_decode( wp_remote_retrieve_body( $res ), true );
+			if ( json_last_error() !== JSON_ERROR_NONE ) {
+				throw new Exception( 'Invalid JSON response from API' );
+			}
+			
+			if ( ! empty( $body['error'] ) ) {
+				throw new Exception( 'API Error: ' . $body['message'] );
+			}
+			
+			$response = $body['response'] ?? array();
+			$reviews = $response['items'] ?? array();
+			$resume_cursor = $response['resume_cursor'] ?? '';
+			$latest_ts = $response['latest_ts'] ?? 0;
+			$more_from_shopee = $response['more_from_shopee'] ?? false;
+			
+			if ( ! empty( $reviews ) && is_array( $reviews ) ) {
+				$all_reviews = array_merge( $all_reviews, $reviews );
+				$total_fetched += count( $reviews );
+			}
+			
+			// Continue with next page if resume_cursor is provided
+			$cursor = $resume_cursor;
+			$attempts++;
+			
+			// Stop if no more data or reached safety limits
+			if ( ! $more_from_shopee || empty( $resume_cursor ) || $attempts >= $max_attempts ) {
+				break;
+			}
+			
+			// Safety check
 			if ( $total_fetched >= $this->options['max_fetch'] * 2 ) {
 				break;
 			}
 			
-		} while ( ! empty( $resume_cursor ) && $total_fetched < $this->options['max_fetch'] );
+			// Add delay between requests
+			if ($attempts > 1) {
+				usleep(500000); // 0.5 second delay
+			}
+			
+		} while ( true );
 		
 		// Store the latest timestamp for this product
 		if ( $product_id && $latest_ts > $last_sync_ts ) {
@@ -750,7 +937,7 @@ class VI_WOOCOMMERCE_PHOTO_REVIEWS_Admin_Import_Shopee {
 	}
 
 	/**
-	 * Reschedule cron job
+	 * Reschedule cron job - FIXED IMPLEMENTATION
 	 */
 	private function reschedule_cron() {
 		wp_clear_scheduled_hook( 'wcpr_shopee_daily_sync' );
@@ -760,9 +947,12 @@ class VI_WOOCOMMERCE_PHOTO_REVIEWS_Admin_Import_Shopee {
 			$hour = intval( $time_parts[0] );
 			$minute = intval( $time_parts[1] );
 			
-			$next_run = strtotime( "today {$hour}:{$minute}:00" );
-			if ( $next_run <= time() ) {
-				$next_run = strtotime( "tomorrow {$hour}:{$minute}:00" );
+			// FIXED: Use WordPress timezone for scheduling
+			$wp_timezone = wp_timezone();
+			$next_run = wp_date( 'U', strtotime( "today {$hour}:{$minute}:00" ), $wp_timezone );
+			
+			if ( $next_run <= current_time( 'timestamp' ) ) {
+				$next_run = wp_date( 'U', strtotime( "tomorrow {$hour}:{$minute}:00" ), $wp_timezone );
 			}
 			
 			wp_schedule_event( $next_run, $this->options['cron_interval'], 'wcpr_shopee_daily_sync' );
@@ -968,6 +1158,56 @@ class VI_WOOCOMMERCE_PHOTO_REVIEWS_Admin_Import_Shopee {
 			'result'  => $result,
 		) );
 	}
+	
+		/**
+	 * AJAX: Full fetch for a single product (resets last sync timestamp)
+	 */
+	public function ajax_full_sync_product() {
+		check_ajax_referer( 'wcpr_shopee_ajax_nonce', 'nonce' );
+
+		if ( ! current_user_can( $this->settings->get_setting_capability() ) ) {
+			wp_send_json_error( array( 'message' => 'Permission denied' ) );
+		}
+
+		$product_id = isset( $_POST['product_id'] ) ? intval( $_POST['product_id'] ) : 0;
+		if ( ! $product_id ) {
+			wp_send_json_error( array( 'message' => 'Invalid product ID' ) );
+		}
+
+		$product = get_post( $product_id );
+		if ( ! $product || $product->post_type !== 'product' ) {
+			wp_send_json_error( array( 'message' => 'Product not found' ) );
+		}
+
+		$sku = get_post_meta( $product_id, VI_WOOCOMMERCE_PHOTO_REVIEWS_DATA::search_product_by(), true );
+		if ( ! $sku ) {
+			wp_send_json_error( array( 'message' => 'Product has no SKU mapping' ) );
+		}
+
+		// Reset the last-sync timestamp so we fetch everything
+		delete_post_meta( $product_id, '_shopee_last_review_ts' );
+
+		// Record sync start as manual
+		$sync_id = $this->record_sync_start( 'manual', $sku, $product->post_title );
+
+		// Temporarily increase max_fetch for full sync
+		$original_max_fetch = $this->options['max_fetch'];
+		$this->options['max_fetch'] = 10000; // Much higher limit for full sync
+
+		// Perform sync for this SKU (will now fetch all due to reset)
+		$result = $this->sync_one_sku( $sku, $product_id );
+
+		// Restore original max_fetch
+		$this->options['max_fetch'] = $original_max_fetch;
+
+		// Record completion
+		$this->record_sync_completion( $sync_id, $result );
+
+		wp_send_json_success( array(
+			'message' => sprintf( __( 'Full fetch completed. %d reviews imported, %d skipped.', 'woocommerce-photo-reviews' ), $result['imported'], $result['skipped'] ),
+			'result'  => $result,
+		) );
+	}
 
 	/**
 	 * AJAX: Sync all products
@@ -992,6 +1232,38 @@ class VI_WOOCOMMERCE_PHOTO_REVIEWS_Admin_Import_Shopee {
 			'message' => sprintf( __( 'Sync completed. %d reviews imported, %d skipped.', 'woocommerce-photo-reviews' ), $result['imported'], $result['skipped'] ),
 			'result'  => $result,
 		) );
+	}
+
+	/**
+	 * AJAX: Full Sync (Reset Timestamp)
+	 */
+	public function ajax_full_sync() {
+		check_ajax_referer( 'wcpr_shopee_ajax_nonce', 'nonce' );
+		
+		if ( ! current_user_can( $this->settings->get_setting_capability() ) ) {
+			wp_send_json_error( array( 'message' => 'Permission denied' ) );
+		}
+		
+		$product_id = intval( $_POST['product_id'] ?? 0 );
+		if ( ! $product_id ) {
+			wp_send_json_error( array( 'message' => 'Invalid product ID' ) );
+		}
+
+		// Reset the timestamp to 0 for full sync
+		delete_post_meta( $product_id, '_shopee_last_review_ts' );
+		
+		// Now run the sync using the existing method
+		$result = $this->sync_one_sku( $this->get_sku_from_product_id( $product_id ), $product_id );
+		
+		wp_send_json_success( $result );
+	}
+
+	/**
+	 * Get SKU from product ID
+	 */
+	private function get_sku_from_product_id( $product_id ) {
+		$search_product_by = VI_WOOCOMMERCE_PHOTO_REVIEWS_DATA::search_product_by();
+		return get_post_meta( $product_id, $search_product_by, true );
 	}
 
 	/**
@@ -1026,13 +1298,16 @@ class VI_WOOCOMMERCE_PHOTO_REVIEWS_Admin_Import_Shopee {
 	private function record_sync_completion( $sync_id, $result ) {
 		global $wpdb;
 		
+		// Use WordPress timezone for end_time
+		$end_time = current_time( 'mysql' );
+		
 		$wpdb->update(
 			$this->table_name,
 			array(
 				'reviews_imported' => $result['imported'],
 				'reviews_skipped'  => $result['skipped'],
 				'errors'           => $result['errors'],
-				'end_time'         => current_time( 'mysql' ),
+				'end_time'         => $end_time,
 				'duration_seconds' => $result['duration'],
 				'status'           => $result['success'] ? 'completed' : 'failed',
 			),
@@ -1049,9 +1324,13 @@ class VI_WOOCOMMERCE_PHOTO_REVIEWS_Admin_Import_Shopee {
 		if ( $seconds < 60 ) {
 			return $seconds . 's';
 		} elseif ( $seconds < 3600 ) {
-			return floor( $seconds / 60 ) . 'm ' . ( $seconds % 60 ) . 's';
+			$minutes = floor( $seconds / 60 );
+			$remaining_seconds = $seconds % 60;
+			return $minutes . 'm ' . $remaining_seconds . 's';
 		} else {
-			return floor( $seconds / 3600 ) . 'h ' . floor( ( $seconds % 3600 ) / 60 ) . 'm';
+			$hours = floor( $seconds / 3600 );
+			$remaining_minutes = floor( ( $seconds % 3600 ) / 60 );
+			return $hours . 'h ' . $remaining_minutes . 'm';
 		}
 	}
 
@@ -1071,11 +1350,21 @@ class VI_WOOCOMMERCE_PHOTO_REVIEWS_Admin_Import_Shopee {
 	}
 
 	/**
-	 * Get sync statistics for a product
+	 * Get sync statistics for a product (FIXED timezone handling)
 	 */
 	public function get_product_sync_stats( $product_id ) {
 		$last_sync_ts = $this->get_last_sync_timestamp( $product_id );
-		$last_sync_date = $last_sync_ts > 0 ? date( 'Y-m-d H:i:s', $last_sync_ts ) : 'Never';
+		
+		// Fix timezone handling
+		if ( $last_sync_ts > 0 ) {
+			// Convert UTC timestamp to WordPress timezone
+			$wp_timezone = wp_timezone();
+			$last_sync_date = wp_date( 'Y-m-d H:i:s', $last_sync_ts, $wp_timezone );
+			$last_sync_human = human_time_diff( $last_sync_ts, current_time( 'timestamp', true ) ) . ' ago';
+		} else {
+			$last_sync_date = 'Never';
+			$last_sync_human = 'Never';
+		}
 		
 		// Count reviews for this product
 		$review_count = get_comments( array(
@@ -1096,7 +1385,59 @@ class VI_WOOCOMMERCE_PHOTO_REVIEWS_Admin_Import_Shopee {
 			'last_sync_timestamp' => $last_sync_ts,
 			'last_sync_date' => $last_sync_date,
 			'total_reviews' => $review_count,
-			'last_sync_human' => $last_sync_ts > 0 ? human_time_diff( $last_sync_ts ) . ' ago' : 'Never'
+			'last_sync_human' => $last_sync_human
 		);
+	}
+
+	/**
+	 * Check if sync should run now based on WordPress settings (FIXED)
+	 */
+	private function should_run_sync_now() {
+		if ( ! $this->options['enabled'] || ! $this->options['daily'] ) {
+			return false;
+		}
+		
+		$last_sync = get_option( 'wcpr_shopee_last_sync_time', 0 );
+		$current_time = current_time( 'timestamp' );
+		
+		// Parse the cron time setting (e.g., "02:00")
+		$cron_time = $this->options['cron_time'];
+		$hour = intval( substr( $cron_time, 0, 2 ) );
+		$minute = intval( substr( $cron_time, 3, 2 ) );
+		
+		// Calculate when the next sync should run in WordPress timezone
+		$wp_timezone = wp_timezone();
+		$next_sync = wp_date( 'U', strtotime( "today {$hour}:{$minute}:00" ), $wp_timezone );
+		
+		// If today's time has passed, schedule for tomorrow
+		if ( $next_sync <= $current_time ) {
+			$next_sync = wp_date( 'U', strtotime( "tomorrow {$hour}:{$minute}:00" ), $wp_timezone );
+		}
+		
+		// Check if enough time has passed since last sync
+		$interval_seconds = $this->get_cron_interval_seconds();
+		$time_since_last = $current_time - $last_sync;
+		
+		return $time_since_last >= $interval_seconds;
+	}
+
+	/**
+	 * Get cron interval in seconds
+	 */
+	private function get_cron_interval_seconds() {
+		switch ( $this->options['cron_interval'] ) {
+			case 'hourly':
+				return 3600;
+			case 'twice_hourly':
+				return 1800; // 30 minutes
+			case 'twicedaily':
+				return 43200; // 12 hours
+			case 'daily':
+				return 86400; // 24 hours
+			case 'weekly':
+				return 604800; // 7 days
+			default:
+				return 86400; // Default to daily
+		}
 	}
 }

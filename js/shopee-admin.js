@@ -37,6 +37,7 @@
 			// Modal close
 			$(document).on('click', '.wcpr-modal-close', this.closeModal.bind(this));
 			$(document).on('click', '.wcpr-modal', this.handleModalBackgroundClick.bind(this));
+			$(document).on('click', '.wcpr-full-fetch-product-btn', this.fullFetchProduct.bind(this));
 		}
 		
 		/**
@@ -140,6 +141,9 @@
 						<td>
 							<button type="button" class="button wcpr-sync-product-btn" data-product-id="${product.id}" data-product-name="${product.name}">
 								Sync Reviews
+							</button>
+							<button type="button" class="button button-primary wcpr-full-fetch-product-btn" data-product-id="${product.id}" data-product-name="${product.name}" style="margin-left:6px;">
+								Full Fetch
 							</button>
 						</td>
 					</tr>
@@ -311,6 +315,48 @@
 				complete: () => {
 					this.isSyncing = false;
 					button.prop('disabled', false).text('Sync Reviews');
+					this.hideModal();
+				}
+			});
+		}
+
+		/**
+		 * Full fetch for a single product (resets last sync timestamp)
+		 */
+		fullFetchProduct(event) {
+			if (this.isSyncing) return;
+
+			const button = $(event.currentTarget);
+			const productId = button.data('product-id');
+			const productName = button.data('product-name');
+
+			this.isSyncing = true;
+			button.prop('disabled', true).text('Full fetching...');
+			this.showModal(`Full fetching ${productName}...`);
+
+			$.ajax({
+				url: wcpr_shopee_ajax.ajax_url,
+				type: 'POST',
+				data: {
+					action: 'wcpr_shopee_full_sync_product',
+					nonce: wcpr_shopee_ajax.nonce,
+					product_id: productId
+				},
+				success: (response) => {
+					if (response.success) {
+						this.showNotice(response.data.message, 'success');
+						this.loadProducts();
+						this.loadHistory();
+					} else {
+						this.showNotice('Full fetch failed: ' + response.data.message, 'error');
+					}
+				},
+				error: () => {
+					this.showNotice('Full fetch failed. Please try again.', 'error');
+				},
+				complete: () => {
+					this.isSyncing = false;
+					button.prop('disabled', false).text('Full Fetch');
 					this.hideModal();
 				}
 			});
