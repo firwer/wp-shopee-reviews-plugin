@@ -1,6 +1,6 @@
 /* Shopee Style Template CSS */
 .wcpr-shopee-review-item {
-	background: #fff;
+	background: #fdfdfd;
 	border-radius: 8px;
 	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 	margin-bottom: 20px;
@@ -410,25 +410,6 @@
 		width: 100%;
 		justify-content: center;
 	}
-}
-
-/* Shopee Badge - Simple version without tooltip */
-.wcpr-shopee-badge {
-	display: inline-flex;
-	align-items: center;
-	background: #ee4d2d;
-	color: #fff;
-	padding: 2px 5px;
-	border-radius: 12px;
-	font-size: 9px;
-	font-weight: 500;
-	letter-spacing: 0.5px;
-}
-
-/* Remove any tooltip-related styles */
-.wcpr-shopee-badge .shopee-tooltip,
-.wcpr-shopee-badge .shopee-info-icon {
-	display: none !important;
 }
 
 /* Remove the like section as requested */
