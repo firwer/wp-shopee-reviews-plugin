@@ -15,9 +15,6 @@ $image_class      = array(
 	$prefix_class . 'wcpr-filter-button-images',
 );
 $image_class[]    = $query_image ? $prefix_class . 'wcpr-active' : '';
-$verified_class   = array( $prefix_class . 'wcpr-filter-button' );
-$verified_class[] = $settings->get_params( 'photo', 'verified' ) == 'badge' ? $settings->get_params( 'photo', 'verified_badge' ) : $prefix_class . 'wcpr-filter-button-verified';
-$verified_class[] = $query_verified ? $prefix_class . 'wcpr-active' : '';
 
 $class_style = '';
 switch ($settings->get_params( 'photo', 'display' ) ){
@@ -46,17 +43,9 @@ switch ($settings->get_params( 'photo', 'display' ) ){
 if ( $is_shortcode ) {
 	$image_link    = ( $query_image ? esc_url( remove_query_arg( array( 'wcpr_image' ), $product_link ) ) :
 		esc_url( add_query_arg( array( 'wcpr_image' => true ), remove_query_arg( array( 'wcpr_page' ), $product_link ) ) ) );
-	$verified_link = ( $query_verified ? esc_url( remove_query_arg( array( 'wcpr_verified' ), $product_link ) ) :
-		esc_url( add_query_arg( array( 'wcpr_verified' => true ), remove_query_arg( array( 'wcpr_page' ), $product_link ) ) ) );
 } else {
 	$image_link    = ( $query_image ? remove_query_arg( array( 'image', 'offset', 'cpage' ), $product_link1 ) :
 			add_query_arg( array( 'image' => true ), remove_query_arg( array(
-				'page',
-				'offset',
-				'cpage'
-			), $product_link1 ) ) ) . $anchor_link;
-	$verified_link = ( $query_verified ? remove_query_arg( array( 'verified', 'offset', 'cpage' ), $product_link1 ) :
-			add_query_arg( array( 'verified' => true ), remove_query_arg( array(
 				'page',
 				'offset',
 				'cpage'
@@ -69,11 +58,6 @@ if ( $is_shortcode ) {
        class="<?php echo esc_attr( trim( implode( ' ', $image_class ) ) ); ?>" rel="nofollow">
 		<?php esc_html_e( 'With images', 'woocommerce-photo-reviews' ); ?>
         (<span class="<?php echo esc_attr( $prefix_class ); ?>wcpr-filter-button-count"><?php echo esc_html( $count_images ); ?></span>)
-    </a>
-    <a href="<?php echo esc_url( $verified_link ); ?>" data-filter_type="verified"
-       class="<?php echo esc_attr( trim( implode( ' ', $verified_class ) ) ); ?>" rel="nofollow">
-		<?php esc_html_e( 'Verified', 'woocommerce-photo-reviews' ); ?>
-        (<span class="<?php echo esc_attr( $prefix_class ); ?>wcpr-filter-button-count"><?php echo esc_html( $count_verified ); ?></span>)
     </a>
 	<?php if (apply_filters('viwcpr-filter-by-rating', true)){
 		if ( $is_shortcode ) {
