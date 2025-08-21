@@ -53,7 +53,7 @@
 }
 
 .wcpr-shopee-author {
-	color: #ee4d2d;
+	color: #b0291c;
 	text-decoration: none;
 	font-weight: 500;
 	font-size: 14px;
@@ -74,7 +74,7 @@
 }
 
 .wcpr-shopee-star-filled {
-	fill: #ee4d2d;
+	fill: #b0291c;
 }
 
 .wcpr-shopee-star-empty {
@@ -293,7 +293,7 @@
 .wcpr-shopee-rating-number {
 	font-size: 48px;
 	font-weight: 700;
-	color: #ee4d2d;
+	color: #b0291c;
 	line-height: 1;
 }
 
@@ -314,7 +314,7 @@
 }
 
 .wcpr-shopee-star-filled {
-	fill: #ee4d2d;
+	fill: #b0291c;
 }
 
 .wcpr-shopee-star-empty {
@@ -332,7 +332,7 @@
 	display: flex;
 	align-items: center;
 	gap: 16px;
-	background: linear-gradient(135deg, #ee4d2d 0%, #ff6b4a 100%);
+	background: linear-gradient(135deg, #b0291c 0%, #d93829 100%);
 	border-radius: 12px;
 	padding: 16px 20px;
 	box-shadow: 0 4px 15px rgba(238, 77, 45, 0.3);
@@ -612,7 +612,7 @@
 	width: 20px;
 	height: 20px;
 	border: 2px solid #f3f3f3;
-	border-top: 2px solid #ee4d2d;
+	border-top: 2px solid #b0291c;
 	border-radius: 50%;
 	animation: spin 1s linear infinite;
 	transform: translate(-50%, -50%);

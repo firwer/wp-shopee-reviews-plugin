@@ -747,11 +747,9 @@ class VI_WOOCOMMERCE_PHOTO_REVIEWS_Frontend_Frontend {
 	}
  
 	public function enqueue_shopee_style() {
-		wp_register_style( 'wcpr-shopee-badge', VI_WOOCOMMERCE_PHOTO_REVIEWS_CSS . 'shopee.css', array(), VI_WOOCOMMERCE_PHOTO_REVIEWS_VERSION );
 		wp_register_style( 'wcpr-shopee-style', VI_WOOCOMMERCE_PHOTO_REVIEWS_CSS . 'shopee-style.css', array(), VI_WOOCOMMERCE_PHOTO_REVIEWS_VERSION );
 		wp_register_style( 'wcpr-shopee-pagination', VI_WOOCOMMERCE_PHOTO_REVIEWS_CSS . 'shopee-pagination.css', array(), VI_WOOCOMMERCE_PHOTO_REVIEWS_VERSION );
 	
-		wp_enqueue_style( 'wcpr-shopee-badge' );
 		wp_enqueue_style( 'wcpr-shopee-style' );
 		wp_enqueue_style( 'wcpr-shopee-pagination' );
 	
