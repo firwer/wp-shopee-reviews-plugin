@@ -18,20 +18,26 @@
 	flex-shrink: 0;
 }
 
-.wcpr-shopee-avatar-placeholder {
-	width: 40px;
+.shopee-avatar__placeholder {    
+    background-color: #f5f5f5;
+    border-radius: 50%;
+    overflow: hidden;
+    position: relative;
+    width: 40px;
 	height: 40px;
-	border-radius: 50%;
-	background: #f5f5f5;
-	display: flex;
-	align-items: center;
-	justify-content: center;
 }
 
-.shopee-svg-icon.icon-headshot {
-	width: 20px;
-	height: 20px;
-	fill: #999;
+.shopee-avatar__placeholder .icon-headshot {
+    stroke: #c6c6c6;
+    font-size: 1.5rem;
+    font-weight: 400;
+    left: 50%;
+    line-height: 2rem;
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%,-50%);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 }
 
 .wcpr-shopee-review-content {
@@ -256,12 +262,20 @@
 
 /* Overall Rating Styles */
 .wcpr-shopee-overall-rating {
-	background: #fff;
+	background: #fffbf8;
 	border-radius: 8px;
 	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 	padding: 20px;
 	margin-bottom: 20px;
 	font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+.wcpr-review-container {
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	justify-content: center;
+	gap: 10px;
 }
 
 .wcpr-shopee-rating-summary {
@@ -540,4 +554,70 @@
 @keyframes spin {
 	0% { transform: translate(-50%, -50%) rotate(0deg); }
 	100% { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+/* Info Icon Tooltip Styles */
+.wcpr-info-icon-wrapper {
+    position: relative;
+    display: inline-block;
+    cursor: help;
+}
+
+.wcpr-info-icon {
+    transition: transform 0.2s ease;
+}
+
+.wcpr-info-icon-wrapper:hover .wcpr-info-icon {
+    transform: scale(1.1);
+}
+
+/* Custom CSS Tooltip (Option 1) */
+.wcpr-tooltip {
+    visibility: hidden;
+    width: 280px;
+    background-color: #333;
+    color: #fff;
+    text-align: center;
+    border-radius: 6px;
+    padding: 8px 12px;
+    position: absolute;
+    z-index: 1000;
+    bottom: 125%;
+    left: 50%;
+    margin-left: -140px;
+    opacity: 0;
+    transition: opacity 0.3s;
+    font-size: 12px;
+    line-height: 1.4;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+.wcpr-tooltip::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    margin-left: -5px;
+    border-width: 5px;
+    border-style: solid;
+    border-color: #333 transparent transparent transparent;
+}
+
+.wcpr-info-icon-wrapper:hover .wcpr-tooltip {
+    visibility: visible;
+    opacity: 1;
+}
+
+/* Enhanced Hover Effect */
+.wcpr-info-icon-wrapper:hover {
+    transform: translateY(-2px);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .wcpr-tooltip {
+        width: 240px;
+        margin-left: -120px;
+        font-size: 11px;
+    }
 }

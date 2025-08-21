@@ -66,8 +66,21 @@ if ($count_reviews > 0) {
 				}
 				?>
 			</div>
-			<div class="wcpr-shopee-review-count">
-				<?php printf( esc_html( _n( '%s review', '%s reviews', $count_reviews, 'woocommerce-photo-reviews' ) ), number_format_i18n( $count_reviews ) ); ?>
+			<div class="wcpr-review-container">
+				<div class="wcpr-shopee-review-count">
+					<?php printf( esc_html( _n( '%s review', '%s reviews', $count_reviews, 'woocommerce-photo-reviews' ) ), number_format_i18n( $count_reviews ) ); ?>
+				</div>
+				<div class="wcpr-info-icon-wrapper" title="100% Authentic Reviews from our Shopee Store and Website!">
+					<svg fill="#ee4d2d" version="1.1" id="Capa_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="15px" height="15px" viewBox="0 0 416.979 416.979" xml:space="preserve" class="wcpr-info-icon">
+						<g>
+							<path d="M356.004,61.156c-81.37-81.47-213.377-81.551-294.848-0.182c-81.47,81.371-81.552,213.379-0.181,294.85
+								c81.369,81.47,213.378,81.551,294.849,0.181C437.293,274.636,437.375,142.626,356.004,61.156z M237.6,340.786
+								c0,3.217-2.607,5.822-5.822,5.822h-46.576c-3.215,0-5.822-2.605-5.822-5.822V167.885c0-3.217,2.607-5.822,5.822-5.822h46.576
+								c3.215,0,5.822,2.604,5.822,5.822V340.786z M208.49,137.901c-18.618,0-33.766-15.146-33.766-33.765
+								c0-18.617,15.147-33.766,33.766-33.766c18.619,0,33.766,15.148,33.766,33.766C242.256,122.755,227.107,137.901,208.49,137.901z"></path>
+						</g>
+					</svg>
+				</div>
 			</div>
 		</div>
 	</div>
@@ -90,12 +103,9 @@ foreach ( $my_comments as $comment ) {
 	<div class="wcpr-shopee-review-item" data-comment-id="<?php echo esc_attr( $comment_id ); ?>">
 		<div class="wcpr-shopee-review-header">
 			<div class="wcpr-shopee-avatar">
-				<div class="wcpr-shopee-avatar-placeholder">
+				<div class="shopee-avatar__placeholder">
 					<svg enable-background="new 0 0 15 15" viewBox="0 0 15 15" x="0" y="0" class="shopee-svg-icon icon-headshot">
-						<g>
-							<circle cx="7.5" cy="4.5" fill="none" r="3.8" stroke-miterlimit="10"></circle>
-							<path d="m1.5 14.2c0-3.3 2.7-6 6-6s6 2.7 6 6" fill="none" stroke-linecap="round" stroke-miterlimit="10"></path>
-						</g>
+						<g><circle cx="7.5" cy="4.5" fill="none" r="3.8" stroke-miterlimit="10"></circle><path d="m1.5 14.2c0-3.3 2.7-6 6-6s6 2.7 6 6" fill="none" stroke-linecap="round" stroke-miterlimit="10"></path></g>
 					</svg>
 				</div>
 			</div>
