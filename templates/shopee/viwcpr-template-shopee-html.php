@@ -45,41 +45,41 @@ if ($count_reviews > 0) {
 	?>
 	<div class="wcpr-shopee-overall-rating">
 		<div class="wcpr-shopee-rating-summary">
-			<div class="wcpr-shopee-rating-score">
-				<span class="wcpr-shopee-rating-number"><?php echo esc_html( number_format( $average_rating, 1 ) ); ?></span>
-				<span class="wcpr-shopee-rating-out-of"><?php esc_html_e( 'out of 5', 'woocommerce-photo-reviews' ); ?></span>
-			</div>
-			<div class="wcpr-shopee-rating-stars">
-				<?php
-				$rating = $average_rating;
-				for ( $i = 1; $i <= 5; $i++ ) {
-					// Fix: Use proper star filling logic
-					if ( $i <= round($rating) ) {
-						echo '<svg viewBox="0 0 15 15" class="wcpr-shopee-star wcpr-shopee-star-filled">';
-						echo '<polygon points="7.5 .8 9.7 5.4 14.5 5.9 10.7 9.1 11.8 14.2 7.5 11.6 3.2 14.2 4.3 9.1 .5 5.9 5.3 5.4" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="10"></polygon>';
-						echo '</svg>';
-					} else {
-						echo '<svg viewBox="0 0 15 15" class="wcpr-shopee-star wcpr-shopee-star-empty">';
-						echo '<polygon fill="none" points="7.5 .8 9.7 5.4 14.5 5.9 10.7 9.1 11.8 14.2 7.5 11.6 3.2 14.2 4.3 9.1 .5 5.9 5.3 5.4" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="10"></polygon>';
-						echo '</svg>';
+			<div class="wcpr-shopee-rating-left">
+				<div class="wcpr-shopee-rating-score">
+					<span class="wcpr-shopee-rating-number"><?php echo esc_html( number_format( $average_rating, 1 ) ); ?></span>
+					<span class="wcpr-shopee-rating-out-of"><?php esc_html_e( 'out of 5', 'woocommerce-photo-reviews' ); ?></span>
+				</div>
+				<div class="wcpr-shopee-rating-stars">
+					<?php
+					$rating = $average_rating;
+					for ( $i = 1; $i <= 5; $i++ ) {
+						if ( $i <= round($rating) ) {
+							echo '<svg viewBox="0 0 15 15" class="wcpr-shopee-star wcpr-shopee-star-filled">';
+							echo '<polygon points="7.5 .8 9.7 5.4 14.5 5.9 10.7 9.1 11.8 14.2 7.5 11.6 3.2 14.2 4.3 9.1 .5 5.9 5.3 5.4" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="10"></polygon>';
+							echo '</svg>';
+						} else {
+							echo '<svg viewBox="0 0 15 15" class="wcpr-shopee-star wcpr-shopee-star-empty">';
+							echo '<polygon fill="none" points="7.5 .8 9.7 5.4 14.5 5.9 10.7 9.1 11.8 14.2 7.5 11.6 3.2 14.2 4.3 9.1 .5 5.9 5.3 5.4" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="10"></polygon>';
+							echo '</svg>';
+						}
 					}
-				}
-				?>
-			</div>
-			<div class="wcpr-review-container">
+					?>
+				</div>
 				<div class="wcpr-shopee-review-count">
 					<?php printf( esc_html( _n( '%s review', '%s reviews', $count_reviews, 'woocommerce-photo-reviews' ) ), number_format_i18n( $count_reviews ) ); ?>
 				</div>
-				<div class="wcpr-info-icon-wrapper" title="100% Authentic Reviews from our Shopee Store and Website!">
-					<svg fill="#ee4d2d" version="1.1" id="Capa_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="15px" height="15px" viewBox="0 0 416.979 416.979" xml:space="preserve" class="wcpr-info-icon">
-						<g>
-							<path d="M356.004,61.156c-81.37-81.47-213.377-81.551-294.848-0.182c-81.47,81.371-81.552,213.379-0.181,294.85
-								c81.369,81.47,213.378,81.551,294.849,0.181C437.293,274.636,437.375,142.626,356.004,61.156z M237.6,340.786
-								c0,3.217-2.607,5.822-5.822,5.822h-46.576c-3.215,0-5.822-2.605-5.822-5.822V167.885c0-3.217,2.607-5.822,5.822-5.822h46.576
-								c3.215,0,5.822,2.604,5.822,5.822V340.786z M208.49,137.901c-18.618,0-33.766-15.146-33.766-33.765
-								c0-18.617,15.147-33.766,33.766-33.766c18.619,0,33.766,15.148,33.766,33.766C242.256,122.755,227.107,137.901,208.49,137.901z"></path>
-						</g>
+			</div>
+			
+			<div class="wcpr-shopee-authentic-badge">
+				<div class="wcpr-authentic-icon">
+					<svg viewBox="0 0 24 24" fill="currentColor" class="wcpr-checkmark-icon">
+						<path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
 					</svg>
+				</div>
+				<div class="wcpr-authentic-text">
+					<span class="wcpr-authentic-main">100% Authentic Reviews</span>
+					<span class="wcpr-authentic-sub">From Our Shopee Store & Website</span>
 				</div>
 			</div>
 		</div>
