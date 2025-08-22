@@ -270,11 +270,52 @@
 	box-shadow: 0 4px 20px rgba(255, 228, 179, 0.3);
 }
 
+/* Shopee rating summary row with inline filters */
 .wcpr-shopee-rating-summary {
 	display: flex;
 	align-items: center;
-	justify-content: space-between;
-	gap: 32px;
+	gap: 16px;
+	flex-wrap: wrap;
+}
+.wcpr-shopee-rating-left { flex: 0 0 auto; }
+.wcpr-shopee-authentic-badge { flex: 0 0 auto; }
+.wcpr-shopee-rating-filters {
+	flex: 1 1 auto;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	justify-content: center;
+}
+.wcpr-shopee-filter-button {
+	appearance: none;
+	border: 1px solid rgba(0,0,0,.12);
+	background: #fff;
+	color: #222;
+	border-radius: 8px;
+	padding: 8px 12px;
+	font-size: 13px;
+	line-height: 1.2;
+	cursor: pointer;
+	transition: all .15s ease;
+}
+.wcpr-shopee-filter-button:hover {
+	border-color: #b0291c;
+	color: #b0291c;
+}
+.wcpr-shopee-filter-button.wcpr-active {
+	background: #b0291c;
+	border-color: #b0291c;
+	color: #fff;
+}
+.wcpr-shopee-reviews-container.wcpr-loading {
+	position: relative;
+}
+.wcpr-shopee-reviews-container.wcpr-loading:after {
+	content: '';
+	position: absolute;
+	inset: 0;
+	background: rgba(255,255,255,.6);
+	backdrop-filter: blur(1px);
 }
 
 .wcpr-shopee-rating-left {

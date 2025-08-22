@@ -72,6 +72,10 @@ class VI_WOOCOMMERCE_PHOTO_REVIEWS_Frontend_Frontend {
 
 		add_action( 'wp_ajax_wcpr_ajax_load_more_reviews', array( $this, 'ajax_load_more_reviews' ) );
 		add_action( 'wp_ajax_nopriv_wcpr_ajax_load_more_reviews', array( $this, 'ajax_load_more_reviews' ) );
+		
+		add_action( 'wp_ajax_wcpr_shopee_filter_reviews', array( $this, 'shopee_filter_reviews' ) );
+		add_action( 'wp_ajax_nopriv_wcpr_shopee_filter_reviews', array( $this, 'shopee_filter_reviews' ) );
+
 		/*helpful button handle*/
 		add_action( 'wp_ajax_wcpr_helpful_button_handle', array( $this, 'helpful_button_handle' ) );
 		add_action( 'wp_ajax_nopriv_wcpr_helpful_button_handle', array( $this, 'helpful_button_handle' ) );
@@ -3072,5 +3076,137 @@ class VI_WOOCOMMERCE_PHOTO_REVIEWS_Frontend_Frontend {
 		$style        = "transform: scale({$flag_size}); margin: -{$margin_heigh}px -{$margin_width}px";
 
 		return $style;
+	}
+
+	public function shopee_filter_reviews() {
+		self::$is_ajax  = true;
+		$post_id        = isset( $_POST['post_id'] ) ? absint( $_POST['post_id'] ) : 0;
+		self::$rating   = isset( $_POST['rating'] ) ? wc_clean( $_POST['rating'] ) : '';
+		self::$verified = '';
+		self::$image    = isset( $_POST['image'] ) ? wc_clean( $_POST['image'] ) : '';
+		$response       = array( 'html' => '' );
+
+		if ( ! $post_id ) {
+			wp_send_json( $response );
+		}
+
+		global $product, $post;
+		$post    = get_post( $post_id );
+		$product = wc_get_product( $post_id );
+
+		$comments_per_page = get_option( 'comments_per_page' );
+		$post_in           = array( $post_id );
+
+		if ( count( villatheme_json_decode( self::$settings->get_params( 'share_reviews' ) ) ) ) {
+			$share_review_ids = VI_WOOCOMMERCE_PHOTO_REVIEWS_Frontend_Share_Reviews::get_products( $post_id );
+			$post_in          = array_merge( $share_review_ids, $post_in );
+		}
+
+		$comment_args = array(
+			'status'      => 'approve',
+			'post_type'   => 'product',
+			'post_status' => 'any',
+			'number'      => $comments_per_page,
+			'paged'       => 1,
+			'parent'      => 0,
+			'post__in'    => $post_in,
+		);
+
+		if ( self::$image || self::$rating ) {
+			$meta_query = array( 'relation' => 'and' );
+			if ( self::$image ) {
+				$meta_query[] = array( 'key' => 'reviews-images', 'compare' => 'EXISTS' );
+			}
+			if ( self::$rating ) {
+				$meta_query[] = array( 'key' => 'rating', 'value' => self::$rating, 'compare' => '=' );
+			}
+			$comment_args['meta_query'] = $meta_query;
+		}
+
+		$comment_args = $this->sort_reviews( $comment_args );
+		$my_comments  = self::get_comments( apply_filters( 'woocommerce_photo_reviews_shortcode_comment_args', $comment_args ) );
+
+		ob_start();
+		if ( is_array( $my_comments ) && count( $my_comments ) ) {
+			foreach ( $my_comments as $comment ) {
+				$comment_id = $comment->comment_ID;
+				$rating     = get_comment_meta( $comment_id, 'rating', true );
+				$images     = get_comment_meta( $comment_id, 'reviews-images', true );
+				$videos     = get_comment_meta( $comment_id, 'reviews-videos', true );
+
+				?>
+				<div class="wcpr-shopee-review-item" data-comment-id="<?php echo esc_attr( $comment_id ); ?>">
+					<div class="wcpr-shopee-review-header">
+						<div class="wcpr-shopee-avatar">
+							<div class="shopee-avatar__placeholder">
+								<svg viewBox="0 0 15 15" class="shopee-svg-icon icon-headshot"><g><circle cx="7.5" cy="4.5" fill="none" r="3.8"></circle><path d="m1.5 14.2c0-3.3 2.7-6 6-6s6 2.7 6 6" fill="none"></path></g></svg>
+							</div>
+						</div>
+						<div class="wcpr-shopee-review-content">
+							<div class="wcpr-shopee-review-meta">
+								<span class="wcpr-shopee-author"><?php echo esc_html( $comment->comment_author ); ?></span>
+								<?php if ( $rating ) : ?>
+									<div class="wcpr-shopee-rating">
+										<?php for ( $i = 1; $i <= 5; $i++ ) {
+											if ( $i <= round( $rating ) ) {
+												echo '<svg viewBox="0 0 15 15" class="wcpr-shopee-star wcpr-shopee-star-filled"><polygon points="7.5 .8 9.7 5.4 14.5 5.9 10.7 9.1 11.8 14.2 7.5 11.6 3.2 14.2 4.3 9.1 .5 5.9 5.3 5.4"></polygon></svg>';
+											} else {
+												echo '<svg viewBox="0 0 15 15" class="wcpr-shopee-star wcpr-shopee-star-empty"><polygon fill="none" points="7.5 .8 9.7 5.4 14.5 5.9 10.7 9.1 11.8 14.2 7.5 11.6 3.2 14.2 4.3 9.1 .5 5.9 5.3 5.4"></polygon></svg>';
+											}
+										} ?>
+									</div>
+								<?php endif; ?>
+								<span class="wcpr-shopee-date"><?php echo esc_html( date_i18n( get_option( 'date_format' ), strtotime( $comment->comment_date ) ) ); ?></span>
+							</div>
+
+							<?php if ( $comment->comment_content ) : ?>
+								<div class="wcpr-shopee-review-text"><?php echo wp_kses_post( $comment->comment_content ); ?></div>
+							<?php endif; ?>
+
+							<?php if ( $images || $videos ) : ?>
+								<div class="wcpr-shopee-media-section">
+									<div class="wcpr-shopee-media-grid">
+										<?php
+										$all_media = array();
+										if ( $images && is_array( $images ) ) {
+											foreach ( $images as $image_item ) {
+												if ( ! empty( $image_item ) ) {
+													$all_media[] = array( 'url' => $image_item, 'type' => 'image', 'id' => $image_item );
+												}
+											}
+										}
+										if ( $videos && is_array( $videos ) ) {
+											foreach ( $videos as $video_item ) {
+												if ( ! empty( $video_item ) ) {
+													$all_media[] = array( 'url' => $video_item, 'type' => 'video', 'id' => $video_item );
+												}
+											}
+										}
+										if ( ! empty( $all_media ) ) {
+											foreach ( $all_media as $media ) {
+												$media_url   = $media['url'];
+												$media_type  = $media['type'];
+												$ext         = strtolower( pathinfo( $media_url, PATHINFO_EXTENSION ) );
+												$is_video    = in_array( $ext, array( 'mp4', 'webm', 'mov', 'avi', 'mkv' ), true );
+												if ( $is_video ) { $media_type = 'video'; }
+												if ( $media_type === 'video' ) {
+													echo '<div class="wcpr-shopee-media-item wcpr-shopee-media-video" data-media="' . esc_url( $media_url ) . '" data-type="video" data-media-id="' . esc_attr( $media['id'] ) . '"><div class="wcpr-shopee-video-thumbnail"><svg viewBox="0 0 24 24" class="wcpr-shopee-play-icon"><path d="M8 5v14l11-7z" fill="currentColor"/></svg></div></div>';
+												} else {
+													echo '<div class="wcpr-shopee-media-item wcpr-shopee-media-image" data-media="' . esc_url( $media_url ) . '" data-type="image" data-media-id="' . esc_attr( $media['id'] ) . '"><img src="' . esc_url( $media_url ) . '" alt="Review Image" loading="lazy"></div>';
+												}
+											}
+										}
+										?>
+									</div>
+								</div>
+							<?php endif; ?>
+						</div>
+					</div>
+				</div>
+				<?php
+			}
+		}
+		$response['html'] = ob_get_clean();
+		wp_send_json( $response );
 	}
 }

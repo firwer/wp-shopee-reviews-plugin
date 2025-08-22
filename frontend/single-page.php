@@ -35,11 +35,7 @@ class VI_WOOCOMMERCE_PHOTO_REVIEWS_Frontend_Single_Page {
 		// display overall rating, filter and pagination (but not for shopee template)
 		if ( self::$frontend_style !== '7' ) {
 			add_action( 'wp_footer', array( $this, 'overall_rating_and_filter_html' ) );
-		} else {
-			// For shopee template, only add filters (overall rating is handled in template)
-			add_action( 'wp_footer', array( $this, 'shopee_filters_only_html' ) );
 		}
-		//output#
 		switch ( self::$frontend_style ) {
 			case '2':
 				if ( self::$settings->get_params( 'review_title_enable' ) ) {

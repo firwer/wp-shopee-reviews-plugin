@@ -1,3 +1,13 @@
+// Guard: ensure params exists so the script never crashes before binding handlers
+window.woocommerce_photo_reviews_params = window.woocommerce_photo_reviews_params || {};
+if (!window.woocommerce_photo_reviews_params.ajaxurl) {
+  window.woocommerce_photo_reviews_params.ajaxurl =
+    (typeof window.ajaxurl !== 'undefined')
+      ? window.ajaxurl
+      : (window.wp && wp.ajax && wp.ajax.settings && wp.ajax.settings.url
+          ? wp.ajax.settings.url
+          : '/wp-admin/admin-ajax.php');
+}
 jQuery(window).on('elementor/frontend/init', () => {
     'use strict';
     elementorFrontend.hooks.addAction('frontend/element_ready/woocommerce-photo-reviews.default', function ($scope) {
@@ -735,6 +745,7 @@ function viwcpr_flexslider() {
         if (wrap_width < 480) {
             colums = colums_mobile;
         }
+
         jQuery(this).addClass('woocommerce-photo-reviews-slide-init');
         let itemWidth = wrap_width ?  (wrap_width - gap * colums) / colums : 200;
         wrap.addClass('viwcpr-slide-wrap-init').removeData("flexslider").viwcaio_flexslider({
@@ -1116,3 +1127,47 @@ function viSwipeDetect(el, callback) {
         false
     );
 }
+
+// Global Shopee filter handler
+jQuery(document)
+  .off('click.wcprShopeeFilter')
+  .on('click.wcprShopeeFilter', '.wcpr-shopee-filter-button', function (e) {
+    e.preventDefault();
+    var $btn = jQuery(this),
+        filter = $btn.data('filter'),
+        $container = $btn.closest('.wcpr-shopee-reviews-container'),
+        productId = $container.data('product-id'),
+        rating = '', image = '';
+
+    if (!productId || $container.hasClass('wcpr-loading')) {
+      return false;
+    }
+    if (filter === 'all') {
+      // no rating, no image
+    } else if (filter === 'media') {
+      image = 1;
+    } else {
+      rating = parseInt(filter, 10) || '';
+    }
+
+    $container.addClass('wcpr-loading');
+    jQuery.post(woocommerce_photo_reviews_params.ajaxurl, {
+      action: 'wcpr_shopee_filter_reviews',
+      post_id: productId,
+      rating: rating,
+      image: image,
+      frontend_style: '7'
+    }, function (resp) {
+      if (resp && typeof resp.html !== 'undefined') {
+        $container.find('.wcpr-shopee-reviews-list').html(resp.html);
+        $container.find('.wcpr-shopee-filter-button').removeClass('wcpr-active');
+        $btn.addClass('wcpr-active');
+        try {
+          window.scrollTo({ top: Math.max(0, $container.offset().top - 120), behavior: 'smooth' });
+        } catch (e) {}
+        jQuery(document.body).trigger('wcpr_ajax_load_more_reviews_end');
+      }
+    }).always(function () {
+      $container.removeClass('wcpr-loading');
+    });
+  });
